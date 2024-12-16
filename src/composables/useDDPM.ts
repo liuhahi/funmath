@@ -92,6 +92,15 @@ export function useDDPM() {
     return newImageData
   }
 
+  // Calculate current noise value scaled by step progress
+  const getCurrentNoise = (step: number) => {
+    const u1 = Math.random()
+    const u2 = Math.random()
+    const baseNoise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+    const progress = step / (NUM_STEPS - 1)
+    return Math.abs(baseNoise * progress)
+  }
+
   return {
     currentStep,
     imageData,
@@ -99,6 +108,7 @@ export function useDDPM() {
     getBeta,
     getAlphaCumprod,
     getNoisyImage,
+    getCurrentNoise,
     NUM_STEPS
   }
 }

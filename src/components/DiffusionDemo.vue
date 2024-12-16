@@ -13,6 +13,7 @@ const {
   loadImage,
   getBeta,
   getNoisyImage,
+  getCurrentNoise,
   NUM_STEPS
 } = useDDPM()
 
@@ -92,6 +93,7 @@ const updateCanvases = () => {
       <MathFormula
         :step="selectedStep"
         :beta="getBeta(selectedStep)"
+        :noise="getCurrentNoise(selectedStep)"
       />
     </div>
   </div>
