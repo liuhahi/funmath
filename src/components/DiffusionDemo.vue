@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import MathFormula from './MathFormula.vue'
 
 // Constants for visualization
 const imageSize = 128
@@ -11,33 +12,45 @@ const MAX_NOISE = 0.3
 
 // Reactive state
 const currentStep = ref(0)
+
+// Implement cosine beta schedule as per reference implementation
+const getBeta = (t: number) => {
+  const s = 0.008
+  const steps = NUM_STEPS + 1
+  const x = t / NUM_STEPS
+  const alphas_cumprod = Math.cos(((x) + s) / (1 + s) * Math.PI * 0.5) ** 2
+  const alpha_start = Math.cos((s / (1 + s)) * Math.PI * 0.5) ** 2
+  return 1 - (alphas_cumprod / alpha_start)
+}
+
+// Compute noise level using proper beta schedule
 const noiseLevel = computed(() => {
-  return MIN_NOISE + (MAX_NOISE - MIN_NOISE) * (currentStep.value / (NUM_STEPS - 1))
+  const beta = getBeta(currentStep.value)
+  return 0.01 + beta * 0.5
 })
 
-// Generate diffusion steps with noise levels
-const diffusionSteps = computed(() => Array.from({ length: NUM_STEPS }, (_, i) => ({
-  timestep: i,
-  noiseLevel: MIN_NOISE + (i / (NUM_STEPS - 1)) * (MAX_NOISE - MIN_NOISE),
-})))
+// Generate noise parameters for SVG filter
+const noiseParams = computed(() => ({
+  baseFrequency: noiseLevel.value,
+  numOctaves: 4,
+  seed: currentStep.value * 10,
+  scale: 1 - getBeta(currentStep.value),
+}))
 
 // Compute noise schedule path using cosine schedule
-const getNoiseSchedulePath = (currentStep: number) => {
+const getNoiseSchedulePath = () => {
   const points = Array.from({ length: 100 }, (_, i) => {
     const t = i / 99
     const x = t * diagramWidth
-    const y = diagramHeight - (Math.cos((t + 0.008) / 1.008 * Math.PI * 0.5) ** 2) * diagramHeight
+    const y = diagramHeight * (1 - getBeta(t * NUM_STEPS))
     return `${x},${y}`
   })
   return `M ${points.join(' L ')}`
 }
 
 // Get coordinates for step indicators
-const getStepX = (step: number) => (step / (NUM_STEPS - 1)) * diagramWidth
-const getStepY = (step: number) => {
-  const t = step / (NUM_STEPS - 1)
-  return diagramHeight - (Math.cos((t + 0.008) / 1.008 * Math.PI * 0.5) ** 2) * diagramHeight
-}
+const getStepX = (step: number) => (step / NUM_STEPS) * diagramWidth
+const getStepY = (step: number) => diagramHeight * (1 - getBeta(step))
 
 // Handle slider changes
 const handleStepChange = (event: Event) => {
@@ -50,58 +63,60 @@ const handleStepChange = (event: Event) => {
   <div class="diffusion-demo">
     <div class="visualization-container">
       <div class="image-container">
-        <!-- Noise Image Visualization -->
+        <!-- Noise Image Visualization with improved noise generation -->
         <svg :width="imageSize" :height="imageSize" class="noise-image">
           <defs>
             <filter :id="'noise-' + currentStep">
               <feTurbulence
                 type="fractalNoise"
-                :baseFrequency="noiseLevel"
-                numOctaves="4"
-                :seed="currentStep"
+                :baseFrequency="noiseParams.baseFrequency"
+                :numOctaves="noiseParams.numOctaves"
+                :seed="noiseParams.seed"
               />
               <feComponentTransfer>
-                <feFuncR type="linear" slope="0.5" intercept="0.25"/>
-                <feFuncG type="linear" slope="0.5" intercept="0.25"/>
-                <feFuncB type="linear" slope="0.5" intercept="0.25"/>
+                <feFuncR type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
+                <feFuncG type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
+                <feFuncB type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
               </feComponentTransfer>
             </filter>
           </defs>
           <rect
             width="100%"
             height="100%"
-            :filter="'url(#noise-' + currentStep)"
+            :filter="`url(#noise-${currentStep})`"
           />
         </svg>
       </div>
 
       <div class="formula-container">
-        <div class="formula-section">
-          <h3>Forward Process (q)</h3>
-          <div class="formula" :class="{ active: currentStep > 0 }">
-            <p>x_t = √(αt) × x_{t-1} + √(1-αt) × ε</p>
-          </div>
-        </div>
+        <MathFormula
+          :step="currentStep"
+          :beta="getBeta(currentStep)"
+          :noise="noiseLevel"
+        />
+      </div>
 
-        <!-- Noise Diagram -->
-        <div class="noise-diagram">
-          <svg :width="diagramWidth" :height="diagramHeight" class="noise-graph">
-            <!-- Noise Schedule Curve -->
-            <path
-              :d="getNoiseSchedulePath(currentStep)"
-              stroke="#2196F3"
-              fill="none"
-              stroke-width="2"
-            />
-            <!-- Current Step Indicator -->
-            <circle
-              :cx="getStepX(currentStep)"
-              :cy="getStepY(currentStep)"
-              r="4"
-              fill="#FF4081"
-            />
-          </svg>
-          <div class="step-label">t = {{ currentStep }}</div>
+      <!-- Noise Diagram with proper cosine schedule -->
+      <div class="noise-diagram">
+        <svg :width="diagramWidth" :height="diagramHeight" class="noise-graph">
+          <!-- Noise Schedule Curve -->
+          <path
+            :d="getNoiseSchedulePath()"
+            stroke="#2196F3"
+            fill="none"
+            stroke-width="2"
+          />
+          <!-- Current Step Indicator -->
+          <circle
+            :cx="getStepX(currentStep)"
+            :cy="getStepY(currentStep)"
+            r="4"
+            fill="#FF4081"
+          />
+        </svg>
+        <div class="step-label">
+          <span>t = {{ currentStep }}</span>
+          <span class="noise-value">noise = {{ noiseLevel.toFixed(4) }}</span>
         </div>
       </div>
     </div>
@@ -118,7 +133,7 @@ const handleStepChange = (event: Event) => {
         >
         <div class="step-info">
           <span>Step: {{ currentStep }}</span>
-          <span>Noise Level: {{ noiseLevel.toFixed(3) }}</span>
+          <span>β: {{ getBeta(currentStep).toFixed(4) }}</span>
         </div>
       </div>
     </div>
@@ -220,5 +235,17 @@ const handleStepChange = (event: Event) => {
 .step-label {
   font-size: 14px;
   color: #666;
+  display: flex;
+  gap: 1rem;
+}
+
+.noise-value {
+  color: #2196F3;
+}
+
+.noise-level {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
 }
 </style>
