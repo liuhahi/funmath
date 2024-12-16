@@ -1,62 +1,34 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import MathFormula from './MathFormula.vue'
+import { useDDPM } from '../composables/useDDPM'
 
 // Constants for visualization
 const imageSize = 128
 const diagramWidth = 200
 const diagramHeight = 100
-const NUM_STEPS = 10
-const MIN_NOISE = 0.02
-const MAX_NOISE = 0.3
 
-// Reactive state
-const currentStep = ref(0)
-
-// Implement cosine beta schedule as per reference implementation
-const getBeta = (t: number) => {
-  const s = 0.008
-  const steps = NUM_STEPS + 1
-  const x = t / NUM_STEPS
-  const alphas_cumprod = Math.cos(((x) + s) / (1 + s) * Math.PI * 0.5) ** 2
-  const alpha_start = Math.cos((s / (1 + s)) * Math.PI * 0.5) ** 2
-  return 1 - (alphas_cumprod / alpha_start)
-}
-
-// Compute noise level using proper beta schedule
-const noiseLevel = computed(() => {
-  const beta = getBeta(currentStep.value)
-  return 0.01 + beta * 0.5
-})
-
-// Generate noise parameters for SVG filter
-const noiseParams = computed(() => ({
-  baseFrequency: noiseLevel.value,
-  numOctaves: 4,
-  seed: currentStep.value * 10,
-  scale: 1 - getBeta(currentStep.value),
-}))
-
-// Compute noise schedule path using cosine schedule
-const getNoiseSchedulePath = () => {
-  const points = Array.from({ length: 100 }, (_, i) => {
-    const t = i / 99
-    const x = t * diagramWidth
-    const y = diagramHeight * (1 - getBeta(t * NUM_STEPS))
-    return `${x},${y}`
-  })
-  return `M ${points.join(' L ')}`
-}
-
-// Get coordinates for step indicators
-const getStepX = (step: number) => (step / NUM_STEPS) * diagramWidth
-const getStepY = (step: number) => diagramHeight * (1 - getBeta(step))
+// Use DDPM state management
+const {
+  currentStep,
+  noiseLevel,
+  noiseParams,
+  getBeta,
+  getNoiseSchedulePath,
+  getStepCoordinates,
+  setStep,
+  NUM_STEPS
+} = useDDPM()
 
 // Handle slider changes
 const handleStepChange = (event: Event) => {
   const target = event.target as HTMLInputElement
-  currentStep.value = parseInt(target.value, 10)
+  setStep(parseInt(target.value, 10))
 }
+
+// Get coordinates for step indicators
+const getStepX = (step: number) => getStepCoordinates(step, diagramWidth, diagramHeight).x
+const getStepY = (step: number) => getStepCoordinates(step, diagramWidth, diagramHeight).y
 </script>
 
 <template>
@@ -101,7 +73,7 @@ const handleStepChange = (event: Event) => {
         <svg :width="diagramWidth" :height="diagramHeight" class="noise-graph">
           <!-- Noise Schedule Curve -->
           <path
-            :d="getNoiseSchedulePath()"
+            :d="getNoiseSchedulePath(diagramWidth, diagramHeight)"
             stroke="#2196F3"
             fill="none"
             stroke-width="2"
