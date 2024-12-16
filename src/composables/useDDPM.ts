@@ -67,17 +67,28 @@ export function useDDPM() {
       imageData.value.height
     )
 
+    // For the final step, generate completely random noise
+    if (step === NUM_STEPS - 1) {
+      for (let i = 0; i < newImageData.data.length; i += 4) {
+        newImageData.data[i] = Math.floor(Math.random() * 256)     // Red
+        newImageData.data[i + 1] = Math.floor(Math.random() * 256) // Green
+        newImageData.data[i + 2] = Math.floor(Math.random() * 256) // Blue
+        newImageData.data[i + 3] = 255                             // Alpha
+      }
+      return newImageData
+    }
+
     const alpha_t = getAlphaCumprod(step)
     const sigma_t = Math.sqrt(1 - alpha_t)
 
+    // Progressive noise for intermediate steps
     for (let i = 0; i < newImageData.data.length; i += 4) {
-      const u1 = Math.random()
-      const u2 = Math.random()
-      const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-
       for (let c = 0; c < 3; c++) {
+        const u1 = Math.random()
+        const u2 = Math.random()
+        const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
         const pixel = newImageData.data[i + c]
-        const noiseComponent = 128 + (noise * 128)
+        const noiseComponent = 128 + (noise * 64)
         newImageData.data[i + c] = Math.min(255, Math.max(0,
           pixel * Math.sqrt(alpha_t) + noiseComponent * sigma_t
         ))
