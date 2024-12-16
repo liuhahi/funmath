@@ -107,71 +107,89 @@ const handleStepSelect = (step: number) => {
 <style scoped>
 .diffusion-demo {
   display: grid;
-  grid-template-columns: 3fr 1fr;
+  grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
   gap: 2rem;
   max-width: 1400px;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 1.5rem;
+  background: #fafafa;
+  border-radius: 12px;
 }
 
 .steps-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1.5rem;
-  padding: 1rem;
-  background: #f5f5f5;
-  border-radius: 8px;
+  padding: 1.5rem;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
 .step-item {
   background: white;
-  border-radius: 8px;
-  padding: 1rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
 }
 
 .step-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 
 .step-item.selected {
-  border: 2px solid #2196F3;
+  border-color: #2196F3;
+  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
 }
 
 .step-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .step-label {
   font-weight: 600;
-  color: #333;
+  color: #1a1a1a;
+  font-size: 1.1rem;
 }
 
 .noise-value {
   font-size: 0.9rem;
-  color: #666;
+  color: #2196F3;
+  font-weight: 500;
 }
 
 .noise-image {
   width: 100%;
   height: auto;
-  margin: 0.5rem 0;
+  margin: 0.75rem 0;
   background: #fff;
-  border-radius: 4px;
+  border-radius: 8px;
+  transition: filter 0.3s ease;
 }
 
 .mini-noise-diagram {
-  margin-top: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: background-color 0.3s ease;
+}
+
+.step-item:hover .mini-noise-diagram {
+  background: #f0f7ff;
 }
 
 .noise-graph {
-  background: #f8f9fa;
+  background: transparent;
   border-radius: 4px;
   width: 100%;
   height: auto;
@@ -179,11 +197,37 @@ const handleStepSelect = (step: number) => {
 
 .formula-container {
   position: sticky;
-  top: 1rem;
+  top: 1.5rem;
   background: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.75rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease;
+}
+
+.formula-container:hover {
+  transform: translateY(-2px);
+}
+
+@media (max-width: 1200px) {
+  .diffusion-demo {
+    grid-template-columns: 1fr;
+  }
+
+  .formula-container {
+    position: static;
+    margin-top: 2rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .step-item {
+    padding: 1rem;
+  }
 }
 </style>
 </template>

@@ -53,68 +53,80 @@ const isForwardHighlighted = computed(() => props.step > 0)
 
 <style scoped>
 .math-formula-container {
-  padding: 1.5rem;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  margin: 1rem 0;
+  padding: 2rem;
+  border-radius: 12px;
+  margin: 0;
   background: #fff;
   font-family: 'Times New Roman', serif;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .formula-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .formula-section:last-child {
   margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .formula {
-  font-size: 1.2rem;
-  padding: 0.75rem;
-  border-radius: 4px;
+  font-size: 1.25rem;
+  padding: 1rem;
+  border-radius: 8px;
   background: #f8f9fa;
-  margin: 0.5rem 0;
-  transition: all 0.3s ease;
+  margin: 0.75rem 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border-left: 4px solid transparent;
 }
 
 .formula.active {
   background: #e3f2fd;
-  border-left: 4px solid #2196F3;
+  border-left-color: #2196F3;
+  transform: translateX(4px);
 }
 
 .markov-chain {
   font-style: italic;
+  color: #1a1a1a;
 }
 
 .transition, .reverse {
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  letter-spacing: 0.01em;
 }
 
 .schedule, .cosine-schedule {
-  font-size: 1rem;
-  color: #666;
+  font-size: 1.1rem;
+  color: #424242;
+  line-height: 1.6;
 }
 
 .parameters, .noise-value {
-  font-family: monospace;
-  margin-top: 0.5rem;
-  color: #666;
-  font-size: 0.9rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  margin-top: 0.75rem;
+  color: #2196F3;
+  font-size: 0.95rem;
+  font-weight: 500;
 }
 
 h3 {
-  margin: 0 0 0.75rem 0;
-  color: #333;
-  font-size: 1.1rem;
+  margin: 0 0 1rem 0;
+  color: #1a1a1a;
+  font-size: 1.2rem;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .noise-value {
   display: flex;
   justify-content: space-between;
-  padding: 0.5rem;
-  background: #f8f9fa;
-  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  background: #f0f7ff;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 </style>
