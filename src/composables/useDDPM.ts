@@ -1,19 +1,25 @@
 import { ref } from 'vue'
 
 // Constants for the diffusion process
-const NUM_STEPS = 10
-const MAX_BETA = 0.999
+const NUM_STEPS = 50 // Increased for smoother progression
 
 export function useDDPM() {
   // State management
   const currentStep = ref(0)
   const imageData = ref<ImageData | null>(null)
 
-  // Calculate beta schedule using cosine function
+  // Calculate beta schedule using cosine function from reference implementation
   const getBeta = (t: number) => {
     const T = NUM_STEPS - 1
+    const s = 0.008 // Same as reference implementation
     const t_normalized = t / T
-    return MAX_BETA * (1 - Math.cos((t_normalized * Math.PI) / 2))
+    const alphas_cumprod = Math.cos(((t_normalized + s) / (1 + s) * Math.PI * 0.5)) ** 2
+    const alpha_t = alphas_cumprod / Math.cos((s / (1 + s) * Math.PI * 0.5)) ** 2
+    const alpha_t_prev = t === 0 ? 1.0 : (
+      Math.cos((((t - 1) / T + s) / (1 + s) * Math.PI * 0.5)) ** 2 /
+      Math.cos((s / (1 + s) * Math.PI * 0.5)) ** 2
+    )
+    return Math.min(Math.max(1 - alpha_t / alpha_t_prev, 0.0001), 0.9999)
   }
 
   // Calculate alpha values
@@ -70,6 +76,7 @@ export function useDDPM() {
     // For the final step, generate completely random noise
     if (step === NUM_STEPS - 1) {
       for (let i = 0; i < newImageData.data.length; i += 4) {
+        // Generate completely random values for true noise
         newImageData.data[i] = Math.floor(Math.random() * 256)     // Red
         newImageData.data[i + 1] = Math.floor(Math.random() * 256) // Green
         newImageData.data[i + 2] = Math.floor(Math.random() * 256) // Blue
@@ -81,19 +88,23 @@ export function useDDPM() {
     const alpha_t = getAlphaCumprod(step)
     const sigma_t = Math.sqrt(1 - alpha_t)
 
-    // Progressive noise for intermediate steps
+    // Progressive noise for intermediate steps using Box-Muller transform
     for (let i = 0; i < newImageData.data.length; i += 4) {
       for (let c = 0; c < 3; c++) {
+        // Box-Muller transform for Gaussian noise
         const u1 = Math.random()
         const u2 = Math.random()
         const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+
+        // Apply noise according to reference implementation formula
         const pixel = newImageData.data[i + c]
-        const noiseComponent = 128 + (noise * 64)
+        const scaled_pixel = (pixel / 127.5) - 1.0 // Scale to [-1, 1]
+        const noisy_value = scaled_pixel * Math.sqrt(alpha_t) + noise * sigma_t
         newImageData.data[i + c] = Math.min(255, Math.max(0,
-          pixel * Math.sqrt(alpha_t) + noiseComponent * sigma_t
+          (noisy_value + 1.0) * 127.5 // Scale back to [0, 255]
         ))
       }
-      newImageData.data[i + 3] = imageData.value.data[i + 3]
+      newImageData.data[i + 3] = 255 // Keep alpha channel unchanged
     }
 
     return newImageData

@@ -36,6 +36,8 @@
       </div>
     </div>
 
+    <GifGenerator />
+
     <MathFormula
       :step="selectedStep"
       :beta="getBeta(selectedStep)"
@@ -47,6 +49,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import MathFormula from './MathFormula.vue'
+import GifGenerator from './GifGenerator.vue'
 import { useDDPM } from '../composables/useDDPM'
 
 // Constants for visualization
@@ -76,8 +79,23 @@ const handleStepSelect = (step: number) => {
 
 // Initialize visualization
 onMounted(async () => {
-  // Load the initial dog image
-  await loadImage('/sample-dog.jpg')
+  // Create a simple test image using Canvas API
+  const canvas = document.createElement('canvas')
+  canvas.width = imageSize
+  canvas.height = imageSize
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    // Draw a red circle on white background
+    ctx.fillStyle = 'white'
+    ctx.fillRect(0, 0, imageSize, imageSize)
+    ctx.fillStyle = 'red'
+    ctx.beginPath()
+    ctx.arc(imageSize/2, imageSize/2, imageSize/3, 0, Math.PI * 2)
+    ctx.fill()
+    // Convert canvas to ImageData
+    const imageData = ctx.getImageData(0, 0, imageSize, imageSize)
+    await loadImage(imageData)
+  }
   // Update all canvases with their respective noise levels
   updateCanvases()
 })
