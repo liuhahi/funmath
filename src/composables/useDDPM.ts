@@ -2,17 +2,16 @@ import { ref } from 'vue'
 
 // Constants for the diffusion process
 const NUM_STEPS = 10
-const MAX_BETA = 0.02
+const MAX_BETA = 0.999
 
 export function useDDPM() {
   // State management
   const currentStep = ref(0)
   const imageData = ref<ImageData | null>(null)
 
-  // Calculate beta schedule using cosine function from reference
+  // Calculate beta schedule using cosine function
   const getBeta = (t: number) => {
-    // Following the reference implementation's schedule
-    const T = NUM_STEPS
+    const T = NUM_STEPS - 1
     const t_normalized = t / T
     return MAX_BETA * (1 - Math.cos((t_normalized * Math.PI) / 2))
   }
@@ -35,12 +34,11 @@ export function useDDPM() {
       const img = new Image()
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        const size = 256 // Fixed size for consistent visualization
+        const size = 256
         canvas.width = size
         canvas.height = size
         const ctx = canvas.getContext('2d')
         if (ctx) {
-          // Draw image maintaining aspect ratio
           const scale = Math.min(size / img.width, size / img.height)
           const x = (size - img.width * scale) / 2
           const y = (size - img.height * scale) / 2
@@ -72,21 +70,19 @@ export function useDDPM() {
     const alpha_t = getAlphaCumprod(step)
     const sigma_t = Math.sqrt(1 - alpha_t)
 
-    // Apply noise following the reference implementation's formula
     for (let i = 0; i < newImageData.data.length; i += 4) {
-      // Generate Gaussian noise using Box-Muller transform
       const u1 = Math.random()
       const u2 = Math.random()
       const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
 
-      // Apply noise to each color channel
       for (let c = 0; c < 3; c++) {
         const pixel = newImageData.data[i + c]
-        // q(x_t | x_t-1) = sqrt(alpha_t) * x_t-1 + sqrt(1 - alpha_t) * ε
+        const noiseComponent = 128 + (noise * 128)
         newImageData.data[i + c] = Math.min(255, Math.max(0,
-          pixel * Math.sqrt(alpha_t) + 255 * noise * sigma_t
+          pixel * Math.sqrt(alpha_t) + noiseComponent * sigma_t
         ))
       }
+      newImageData.data[i + 3] = imageData.value.data[i + 3]
     }
 
     return newImageData
@@ -94,11 +90,8 @@ export function useDDPM() {
 
   // Calculate current noise value scaled by step progress
   const getCurrentNoise = (step: number) => {
-    const u1 = Math.random()
-    const u2 = Math.random()
-    const baseNoise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
-    const progress = step / (NUM_STEPS - 1)
-    return Math.abs(baseNoise * progress)
+    const alpha_t = getAlphaCumprod(step)
+    return 1 - alpha_t
   }
 
   return {
