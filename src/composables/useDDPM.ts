@@ -1,70 +1,104 @@
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
-// Constants
+// Constants for the diffusion process
 const NUM_STEPS = 10
-const MIN_NOISE = 0.01
-const MAX_NOISE = 0.5
+const MAX_BETA = 0.02
 
 export function useDDPM() {
-  // State
+  // State management
   const currentStep = ref(0)
+  const imageData = ref<ImageData | null>(null)
 
-  // Implement cosine beta schedule as per reference
+  // Calculate beta schedule using cosine function from reference
   const getBeta = (t: number) => {
-    const s = 0.008
-    const steps = NUM_STEPS + 1
-    const x = t / NUM_STEPS
-    const alphas_cumprod = Math.cos(((x) + s) / (1 + s) * Math.PI * 0.5) ** 2
-    const alpha_start = Math.cos((s / (1 + s)) * Math.PI * 0.5) ** 2
-    return 1 - (alphas_cumprod / alpha_start)
+    // Following the reference implementation's schedule
+    const T = NUM_STEPS
+    const t_normalized = t / T
+    return MAX_BETA * (1 - Math.cos((t_normalized * Math.PI) / 2))
   }
 
-  // Compute current noise level
-  const noiseLevel = computed(() => {
-    const beta = getBeta(currentStep.value)
-    return MIN_NOISE + beta * (MAX_NOISE - MIN_NOISE)
-  })
+  // Calculate alpha values
+  const getAlpha = (t: number) => 1 - getBeta(t)
 
-  // Generate noise parameters for SVG filter
-  const noiseParams = computed(() => ({
-    baseFrequency: noiseLevel.value,
-    numOctaves: 4,
-    seed: currentStep.value * 10,
-    scale: 1 - getBeta(currentStep.value)
-  }))
+  // Calculate cumulative alpha
+  const getAlphaCumprod = (t: number) => {
+    let alpha_t = 1.0
+    for (let s = 0; s <= t; s++) {
+      alpha_t *= getAlpha(s)
+    }
+    return alpha_t
+  }
 
-  // Compute noise schedule path
-  const getNoiseSchedulePath = (width: number, height: number) => {
-    const points = Array.from({ length: 100 }, (_, i) => {
-      const t = i / 99
-      const x = t * width
-      const y = height * (1 - getBeta(t * NUM_STEPS))
-      return `${x},${y}`
+  // Load and process image
+  const loadImage = async (src: string): Promise<void> => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const size = 256 // Fixed size for consistent visualization
+        canvas.width = size
+        canvas.height = size
+        const ctx = canvas.getContext('2d')
+        if (ctx) {
+          // Draw image maintaining aspect ratio
+          const scale = Math.min(size / img.width, size / img.height)
+          const x = (size - img.width * scale) / 2
+          const y = (size - img.height * scale) / 2
+          ctx.drawImage(img, x, y, img.width * scale, img.height * scale)
+          imageData.value = ctx.getImageData(0, 0, size, size)
+        }
+        resolve()
+      }
+      img.src = src
     })
-    return `M ${points.join(' L ')}`
   }
 
-  // Get step coordinates for visualization
-  const getStepCoordinates = (step: number, width: number, height: number) => ({
-    x: (step / NUM_STEPS) * width,
-    y: height * (1 - getBeta(step))
-  })
+  // Apply noise to image data for a specific step
+  const getNoisyImage = (step: number): ImageData | null => {
+    if (!imageData.value) return null
 
-  // Update current step
-  const setStep = (step: number) => {
-    currentStep.value = Math.max(0, Math.min(step, NUM_STEPS - 1))
+    const canvas = document.createElement('canvas')
+    canvas.width = imageData.value.width
+    canvas.height = imageData.value.height
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    const newImageData = new ImageData(
+      new Uint8ClampedArray(imageData.value.data),
+      imageData.value.width,
+      imageData.value.height
+    )
+
+    const alpha_t = getAlphaCumprod(step)
+    const sigma_t = Math.sqrt(1 - alpha_t)
+
+    // Apply noise following the reference implementation's formula
+    for (let i = 0; i < newImageData.data.length; i += 4) {
+      // Generate Gaussian noise using Box-Muller transform
+      const u1 = Math.random()
+      const u2 = Math.random()
+      const noise = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2)
+
+      // Apply noise to each color channel
+      for (let c = 0; c < 3; c++) {
+        const pixel = newImageData.data[i + c]
+        // q(x_t | x_t-1) = sqrt(alpha_t) * x_t-1 + sqrt(1 - alpha_t) * ε
+        newImageData.data[i + c] = Math.min(255, Math.max(0,
+          pixel * Math.sqrt(alpha_t) + 255 * noise * sigma_t
+        ))
+      }
+    }
+
+    return newImageData
   }
 
   return {
     currentStep,
-    noiseLevel,
-    noiseParams,
+    imageData,
+    loadImage,
     getBeta,
-    getNoiseSchedulePath,
-    getStepCoordinates,
-    setStep,
-    NUM_STEPS,
-    MIN_NOISE,
-    MAX_NOISE
+    getAlphaCumprod,
+    getNoisyImage,
+    NUM_STEPS
   }
 }

@@ -1,37 +1,54 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import MathFormula from './MathFormula.vue'
 import { useDDPM } from '../composables/useDDPM'
 
 // Constants for visualization
-const imageSize = 128
-const diagramWidth = 160
-const diagramHeight = 80
+const imageSize = 256
+const canvasRefs = ref<HTMLCanvasElement[]>([])
 
 // Use DDPM state management
 const {
   currentStep,
-  noiseLevel,
-  noiseParams,
+  loadImage,
   getBeta,
-  getNoiseSchedulePath,
-  getStepCoordinates,
-  setStep,
+  getNoisyImage,
   NUM_STEPS
 } = useDDPM()
 
 // Create array of all steps
 const allSteps = Array.from({ length: NUM_STEPS }, (_, i) => i)
 
-// Get coordinates for step indicators
-const getStepX = (step: number) => getStepCoordinates(step, diagramWidth, diagramHeight).x
-const getStepY = (step: number) => getStepCoordinates(step, diagramWidth, diagramHeight).y
-
 // Handle step selection
 const selectedStep = ref(0)
 const handleStepSelect = (step: number) => {
   selectedStep.value = step
-  setStep(step)
+  currentStep.value = step
+  updateCanvases() // Regenerate noise when step changes
+}
+
+// Initialize visualization
+onMounted(async () => {
+  // Load the initial dog image
+  await loadImage('/sample-dog.jpg')
+  // Update all canvases with their respective noise levels
+  updateCanvases()
+})
+
+// Update all canvas elements with noisy images
+const updateCanvases = () => {
+  canvasRefs.value.forEach((canvas, step) => {
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const noisyImageData = getNoisyImage(step)
+    if (noisyImageData) {
+      canvas.width = noisyImageData.width
+      canvas.height = noisyImageData.height
+      ctx.putImageData(noisyImageData, 0, 0)
+    }
+  })
 }
 </script>
 
@@ -51,45 +68,22 @@ const handleStepSelect = (step: number) => {
         </div>
 
         <!-- Noise Image -->
-        <svg :width="imageSize" :height="imageSize" class="noise-image">
-          <defs>
-            <filter :id="'noise-' + step">
-              <feTurbulence
-                type="fractalNoise"
-                :baseFrequency="noiseParams.baseFrequency"
-                :numOctaves="noiseParams.numOctaves"
-                :seed="noiseParams.seed"
-              />
-              <feComponentTransfer>
-                <feFuncR type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
-                <feFuncG type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
-                <feFuncB type="linear" :slope="noiseParams.scale" :intercept="0.25"/>
-              </feComponentTransfer>
-            </filter>
-          </defs>
-          <rect
-            width="100%"
-            height="100%"
-            :filter="`url(#noise-${step})`"
-          />
-        </svg>
+        <canvas
+          :ref="el => { if (el) canvasRefs[step] = el }"
+          class="noise-image"
+        />
 
-        <!-- Mini Noise Diagram -->
-        <div class="mini-noise-diagram">
-          <svg :width="diagramWidth" :height="diagramHeight" class="noise-graph">
-            <path
-              :d="getNoiseSchedulePath(diagramWidth, diagramHeight)"
-              stroke="#2196F3"
-              fill="none"
-              stroke-width="1.5"
+        <!-- Step Progress Indicator -->
+        <div class="step-progress">
+          <div class="progress-bar">
+            <div
+              class="progress-fill"
+              :style="{ width: `${(step / (NUM_STEPS - 1)) * 100}%` }"
             />
-            <circle
-              :cx="getStepX(step)"
-              :cy="getStepY(step)"
-              r="3"
-              fill="#FF4081"
-            />
-          </svg>
+          </div>
+          <span class="progress-label">
+            {{ Math.round((step / (NUM_STEPS - 1)) * 100) }}% noise
+          </span>
         </div>
       </div>
     </div>
@@ -98,7 +92,6 @@ const handleStepSelect = (step: number) => {
       <MathFormula
         :step="selectedStep"
         :beta="getBeta(selectedStep)"
-        :noise="noiseLevel"
       />
     </div>
   </div>
@@ -176,23 +169,31 @@ const handleStepSelect = (step: number) => {
   transition: filter 0.3s ease;
 }
 
-.mini-noise-diagram {
+.step-progress {
   margin-top: 1rem;
-  padding: 0.75rem;
-  background: #f8f9fa;
-  border-radius: 8px;
-  transition: background-color 0.3s ease;
+  padding: 0.5rem;
 }
 
-.step-item:hover .mini-noise-diagram {
-  background: #f0f7ff;
-}
-
-.noise-graph {
-  background: transparent;
-  border-radius: 4px;
+.progress-bar {
   width: 100%;
-  height: auto;
+  height: 4px;
+  background: #eee;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #2196F3;
+  transition: width 0.3s ease;
+}
+
+.progress-label {
+  display: block;
+  text-align: center;
+  font-size: 0.8rem;
+  color: #666;
+  margin-top: 0.25rem;
 }
 
 .formula-container {
