@@ -1,3 +1,49 @@
+<template>
+  <div class="container">
+    <h1>Denoising Diffusion Probabilistic Models</h1>
+
+    <div class="controls">
+      <input
+        type="range"
+        :min="0"
+        :max="NUM_STEPS - 1"
+        v-model="selectedStep"
+        class="slider"
+      />
+      <span class="step-label">Step {{ selectedStep }} ({{ Math.round(selectedStep / (NUM_STEPS - 1) * 100) }}% noise)</span>
+    </div>
+
+    <div class="grid">
+      <div
+        v-for="step in NUM_STEPS"
+        :key="step-1"
+        class="step-container"
+        :class="{ 'selected': selectedStep === step-1 }"
+      >
+        <div class="step-header">
+          <span>Step {{ step-1 }}</span>
+          <span class="beta">β = {{ getBeta(step-1).toFixed(4) }}</span>
+        </div>
+        <canvas
+          :ref="'canvas' + (step-1)"
+          width="256"
+          height="256"
+          class="noise-canvas"
+        ></canvas>
+        <div class="noise-level">
+          {{ Math.round((step-1) / (NUM_STEPS - 1) * 100) }}% noise
+        </div>
+      </div>
+    </div>
+
+    <MathFormula
+      :step="selectedStep"
+      :beta="getBeta(selectedStep)"
+      :noise="getCurrentNoise(selectedStep)"
+    />
+  </div>
+</template>
+
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import MathFormula from './MathFormula.vue'
@@ -53,183 +99,82 @@ const updateCanvases = () => {
 }
 </script>
 
-<template>
-  <div class="diffusion-demo">
-    <div class="steps-grid">
-      <div
-        v-for="step in allSteps"
-        :key="step"
-        class="step-item"
-        :class="{ selected: step === selectedStep }"
-        @click="handleStepSelect(step)"
-      >
-        <div class="step-header">
-          <span class="step-label">Step {{ step }}</span>
-          <span class="noise-value">β = {{ getBeta(step).toFixed(4) }}</span>
-        </div>
-
-        <!-- Noise Image -->
-        <canvas
-          :ref="el => { if (el) canvasRefs[step] = el }"
-          class="noise-image"
-        />
-
-        <!-- Step Progress Indicator -->
-        <div class="step-progress">
-          <div class="progress-bar">
-            <div
-              class="progress-fill"
-              :style="{ width: `${(step / (NUM_STEPS - 1)) * 100}%` }"
-            />
-          </div>
-          <span class="progress-label">
-            {{ Math.round((step / (NUM_STEPS - 1)) * 100) }}% noise
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <div class="formula-container">
-      <MathFormula
-        :step="selectedStep"
-        :beta="getBeta(selectedStep)"
-        :noise="getCurrentNoise(selectedStep)"
-      />
-    </div>
-  </div>
-</template>
-
 <style scoped>
-.diffusion-demo {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(300px, 1fr);
-  gap: 2rem;
-  max-width: 1400px;
+.container {
+  padding: 2rem;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 1.5rem;
-  background: #fafafa;
-  border-radius: 12px;
 }
 
-.steps-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 1.5rem;
-  padding: 1.5rem;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+.controls {
+  margin: 2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
-.step-item {
-  background: white;
-  border-radius: 12px;
-  padding: 1.25rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+.slider {
+  flex: 1;
+  height: 20px;
+  -webkit-appearance: none;
+  background: #d3d3d3;
+  outline: none;
+  border-radius: 10px;
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 25px;
+  height: 25px;
+  background: #4CAF50;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid transparent;
+  border-radius: 50%;
 }
 
-.step-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+.step-label {
+  min-width: 150px;
+  font-size: 1.1rem;
 }
 
-.step-item.selected {
-  border-color: #2196F3;
-  box-shadow: 0 0 0 2px rgba(33, 150, 243, 0.2);
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.step-container {
+  border: 2px solid #eee;
+  border-radius: 8px;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+.step-container.selected {
+  border-color: #4CAF50;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.3);
 }
 
 .step-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 0.5rem;
 }
 
-.step-label {
-  font-weight: 600;
-  color: #1a1a1a;
-  font-size: 1.1rem;
+.beta {
+  color: #666;
 }
 
-.noise-value {
-  font-size: 0.9rem;
-  color: #2196F3;
-  font-weight: 500;
-}
-
-.noise-image {
+.noise-canvas {
   width: 100%;
   height: auto;
-  margin: 0.75rem 0;
-  background: #fff;
-  border-radius: 8px;
-  transition: filter 0.3s ease;
+  border-radius: 4px;
 }
 
-.step-progress {
-  margin-top: 1rem;
-  padding: 0.5rem;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 4px;
-  background: #eee;
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: #2196F3;
-  transition: width 0.3s ease;
-}
-
-.progress-label {
-  display: block;
+.noise-level {
   text-align: center;
-  font-size: 0.8rem;
+  margin-top: 0.5rem;
   color: #666;
-  margin-top: 0.25rem;
-}
-
-.formula-container {
-  position: sticky;
-  top: 1.5rem;
-  background: white;
-  padding: 1.75rem;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-  transition: transform 0.3s ease;
-}
-
-.formula-container:hover {
-  transform: translateY(-2px);
-}
-
-@media (max-width: 1200px) {
-  .diffusion-demo {
-    grid-template-columns: 1fr;
-  }
-
-  .formula-container {
-    position: static;
-    margin-top: 2rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .steps-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .step-item {
-    padding: 1rem;
-  }
 }
 </style>

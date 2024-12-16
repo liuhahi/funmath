@@ -3,50 +3,58 @@
     <!-- Forward Process Section -->
     <div class="formula-section">
       <h3>Forward Process (q)</h3>
-      <div class="formula markov-chain" :class="{ active: step > 0 }">
-        x₀ → x₁ → x₂ → ... → x_{t-1} → x_t
-      </div>
-      <div class="formula transition" :class="{ active: step > 0 }">
-        q(x_t|x_{t-1}) = 𝒩(x_t; √(1-βt)x_{t-1}, βtI)
-      </div>
-      <div class="parameters">
-        β_t = {{ beta.toFixed(4) }}
-      </div>
+      <div class="formula markov-chain" :class="{ active: step > 0 }" v-html="renderKatex(markovChain)"></div>
+      <div class="formula transition" :class="{ active: step > 0 }" v-html="renderKatex(forwardProcess)"></div>
+      <div class="parameters" v-html="renderKatex(`\\beta_t = ${beta.toFixed(4)}`)"></div>
     </div>
 
     <!-- Noise Schedule Section -->
     <div class="formula-section">
       <h3>Noise Schedule</h3>
-      <div class="formula schedule">
-        0 ≤ β₁ < β₂ < ... < βₜ < 1
-      </div>
-      <div class="formula cosine-schedule">
-        βₜ = 1 - cos((t/T + s)/(1 + s)×π/2)²/cos(s/(1 + s)×π/2)²
-      </div>
+      <div class="formula schedule" v-html="renderKatex(betaSchedule)"></div>
+      <div class="formula cosine-schedule" v-html="renderKatex(cosineSchedule)"></div>
       <div class="noise-value">
-        t = {{ step }}
-        noise = {{ noise.toFixed(4) }}
+        <span v-html="renderKatex(`t = ${step}`)"></span>
+        <span v-html="renderKatex(`\\text{noise} = ${noise.toFixed(4)}`)"></span>
       </div>
     </div>
 
     <!-- Reverse Process Section -->
     <div class="formula-section">
       <h3>Reverse Process (p)</h3>
-      <div class="formula reverse" :class="{ active: step < 9 }">
-        p(x_{t-1}|x_t) = 𝒩(x_{t-1}; μ_θ(x_t,t), σ_t²I)
-      </div>
+      <div class="formula reverse" :class="{ active: step < 9 }" v-html="renderKatex(reverseProcess)"></div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import katex from 'katex'
 
 const props = defineProps<{
   step: number
   beta: number
   noise: number
 }>()
+
+const renderKatex = (formula: string) => {
+  try {
+    return katex.renderToString(formula, {
+      throwOnError: false,
+      displayMode: true
+    })
+  } catch (e) {
+    console.error('KaTeX error:', e)
+    return formula
+  }
+}
+
+// LaTeX formulas from reference implementation
+const markovChain = 'x_0 \\rightarrow x_1 \\rightarrow x_2 \\rightarrow \\cdots \\rightarrow x_{t-1} \\rightarrow x_t'
+const forwardProcess = 'q(x_t|x_{t-1}) = \\mathcal{N}(x_t; \\sqrt{1-\\beta_t}x_{t-1}, \\beta_tI)'
+const betaSchedule = '0 \\leq \\beta_1 < \\beta_2 < \\cdots < \\beta_t < 1'
+const cosineSchedule = '\\beta_t = 1 - \\cos\\left(\\frac{t/T + s}{1 + s}\\times\\frac{\\pi}{2}\\right)^2/\\cos\\left(\\frac{s}{1 + s}\\times\\frac{\\pi}{2}\\right)^2'
+const reverseProcess = 'p(x_{t-1}|x_t) = \\mathcal{N}(x_{t-1}; \\mu_\\theta(x_t,t), \\sigma_t^2I)'
 
 const isForwardHighlighted = computed(() => props.step > 0)
 </script>
@@ -128,5 +136,16 @@ h3 {
   background: #f0f7ff;
   border-radius: 8px;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+/* Add KaTeX specific overrides */
+:deep(.katex-display) {
+  margin: 0.5em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+:deep(.katex) {
+  font-size: 1.1em;
 }
 </style>
