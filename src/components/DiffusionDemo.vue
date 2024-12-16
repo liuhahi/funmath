@@ -230,4 +230,3 @@ const handleStepSelect = (step: number) => {
   }
 }
 </style>
-</template>
